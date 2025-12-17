@@ -93,33 +93,91 @@
             <ion-item
               v-for="option in paymentOptions"
               :key="option.value"
-              :button="true"
-              @click="paymentMethod = option.value"
             >
-              <ion-label>{{ option.label }}</ion-label>
-              <ion-radio slot="start" :value="option.value"></ion-radio>
+              <ion-radio :value="option.value">{{ option.label }}</ion-radio>
             </ion-item>
           </ion-radio-group>
         </ion-list>
-        <div class="ion-padding">
-          <ion-button expand="full" color="primary" @click="confirmPayment()">
+      </ion-content>
+      <ion-footer>
+        <ion-toolbar>
+          <ion-button color="success" class="cart-action-btn" expand="block" @click="confirmPayment()">
             ยืนยันการชำระเงิน
           </ion-button>
-        </div>
+        </ion-toolbar>
+      </ion-footer>
+    </ion-modal>
+
+    <!-- QR Payment Modal -->
+    <ion-modal :is-open="showQRModal" @did-dismiss="showQRModal = false">
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>ชำระเงินด้วย QR</ion-title>
+          <ion-buttons slot="end">
+            <ion-button @click="showQRModal = false">ปิด</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding ion-text-center">
+        <img :src="qrImageUrl" alt="QR Code" style="max-width: 100%; height: auto; margin: 24px 0;" />
+        <ion-title style="padding-bottom: 24px;">ยอดรวม: {{ totalAmount }} บาท</ion-title>
+        <ion-button color="success" class="cart-action-btn" expand="block" @click="confirmQRPayment()">ยืนยันการชำระเงิน</ion-button>
       </ion-content>
     </ion-modal>
+
+    
   </ion-page>
 </template>
 
 <script setup lang="ts">
-// ชื่อลูกค้า
+import { ref, computed, onMounted } from 'vue';
+import {
+  IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonFooter, IonSegment, IonSegmentButton,
+  IonLabel, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent,
+  IonList, IonItem, IonNote, IonBadge, IonIcon, IonGrid, IonRow, IonCol, IonButton,
+  IonSearchbar, IonAvatar, IonModal, IonInput, IonTextarea, IonSelect, IonSelectOption,
+  IonButtons, IonSpinner, IonItemSliding, IonItemOptions, IonItemOption,
+  alertController, toastController, actionSheetController, IonRadio, IonRadioGroup
+} from '@ionic/vue';
+// ยืนยันการกระทำด้วย ActionSheet
+const confirmAction = async (header = 'Are you sure?') => {
+  const actionSheet = await actionSheetController.create({
+    header,
+    buttons: [
+      {
+        text: 'Yes',
+        role: 'confirm',
+      },
+      {
+        text: 'No',
+        role: 'cancel',
+      },
+    ],
+  });
+  await actionSheet.present();
+  const { role } = await actionSheet.onWillDismiss();
+  return role === 'confirm';
+};
+import {
+  checkmarkCircle, checkmarkCircleOutline, callOutline, personCircleOutline,
+  personAddOutline, peopleOutline, receiptOutline, createOutline, banOutline
+} from 'ionicons/icons';
+import { getAllPendingPayments } from '../services/paymentService';
+import { getUsers, createUser, updateUser, getUserOrderHistory } from '../services/userService';
+import { updatePaymentStatus } from '../services/orderService';
+import type { Database } from '../types/supabase';
+import type { OrderWithDetails } from '../services/orderService';
+
+
 const customerName = ref('');
 const showPaymentModal = ref(false);
+const showQRModal = ref(false);
 const paymentMethod = ref('');
+const qrImageUrl = '/public/qr-demo.png'; // เปลี่ยน path ตามไฟล์จริง
 const paymentOptions = [
-  { label: 'QR', value: 'qr', icon: 'qr-code-outline', color: '#4f46e5' },
-  { label: 'เงินสด', value: 'cash', icon: 'cash-outline', color: '#22c55e' },
-  { label: 'ค้างชำระ', value: 'credit', icon: 'time-outline', color: '#f59e42' },
+  { label: 'QR', value: 'qr', icon: 'qr-code-outline' },
+  { label: 'เงินสด', value: 'cash', icon: 'cash-outline' },
+  { label: 'ค้างชำระ', value: 'credit', icon: 'time-outline' },
 ];
 
 function submitCart() {
@@ -127,23 +185,43 @@ function submitCart() {
     showToast('กรุณากรอกชื่อลูกค้า', 'danger');
     return;
   }
+  if (!cart.value.length) {
+    showToast('กรุณาเลือกสินค้าอย่างน้อยหนึ่งรายการ', 'danger');
+    return;
+  }
   showPaymentModal.value = true;
 }
 
 function confirmPayment() {
-  console.log('paymentMethod.value',paymentMethod.value);
-  
   if (!paymentMethod.value) {
     showToast('กรุณาเลือกวิธีชำระเงิน', 'danger');
     return;
   }
-  
+  if (paymentMethod.value === 'qr') {
+    showPaymentModal.value = false;
+    showQRModal.value = true;
+    return;
+  }
+  finishOrder();
+}
+
+function confirmQRPayment() {
+  finishOrder();
+  showQRModal.value = false;
+}
+
+function finishOrder() {
   showToast(`ยืนยันออเดอร์ (demo)${customerName.value ? ' : ' + customerName.value : ''} | ชำระเงิน: ${paymentOptions.find(opt => opt.value === paymentMethod.value)?.label}`,'success');
+  console.log('Order', {
+    customerName: customerName.value,
+    paymentMethod: paymentMethod.value,
+    cart: cart.value
+  });
+  
   cart.value = [];
   customerName.value = '';
   paymentMethod.value = '';
   showPaymentModal.value = false;
-  // TODO: เพิ่มฟังก์ชันส่งออเดอร์จริง
 }
 // สินค้าแต่ละชนิด
 const products = [
@@ -157,6 +235,13 @@ const products = [
   { name: '-', value: null },
   { name: '-', value: null },
 ];
+
+const totalAmount = computed(() => {
+  return cart.value.reduce((sum, item) => {
+    const product = products.find(p => p.name === item.name);
+    return sum + (product && product.value ? product.value * item.qty : 0);
+  }, 0);
+});
 
 // ตะกร้าสินค้า
 const cart = ref<{ name: string; qty: number }[]>([]);
@@ -177,24 +262,6 @@ function removeFromCart(productName: string) {
 function onQtyBlur(item: { name: string; qty: number }) {
   if (!item.qty || item.qty < 1) item.qty = 1;
 }
-import { ref, computed, onMounted } from 'vue';
-import {
-  IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonFooter, IonSegment, IonSegmentButton,
-  IonLabel, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent,
-  IonList, IonItem, IonNote, IonBadge, IonIcon, IonGrid, IonRow, IonCol, IonButton,
-  IonSearchbar, IonAvatar, IonModal, IonInput, IonTextarea, IonSelect, IonSelectOption,
-  IonButtons, IonSpinner, IonItemSliding, IonItemOptions, IonItemOption,
-  alertController, toastController, IonRadio, IonRadioGroup
-} from '@ionic/vue';
-import {
-  checkmarkCircle, checkmarkCircleOutline, callOutline, personCircleOutline,
-  personAddOutline, peopleOutline, receiptOutline, createOutline, banOutline
-} from 'ionicons/icons';
-import { getAllPendingPayments } from '../services/paymentService';
-import { getUsers, createUser, updateUser, getUserOrderHistory } from '../services/userService';
-import { updatePaymentStatus } from '../services/orderService';
-import type { Database } from '../types/supabase';
-import type { OrderWithDetails } from '../services/orderService';
 
 type User = Database['public']['Tables']['users']['Row'];
 
