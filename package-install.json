@@ -1,0 +1,6 @@
+{
+    "scripts": {
+        "install-deps": "npm install @supabase/supabase-js",
+        "setup": "npm install && npm run install-deps"
+    }
+}
