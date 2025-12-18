@@ -32,14 +32,14 @@ CREATE TABLE products (
 CREATE TABLE orders (
   order_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_name TEXT NOT NULL,
-  order_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  order_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   product_id UUID NOT NULL REFERENCES products(product_id),
   quantity INTEGER NOT NULL,
   status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('completed', 'pending', 'cancelled')),
   price_per_unit DECIMAL(10, 2) NOT NULL,
   total_price DECIMAL(10, 2) NOT NULL,
   payment_method VARCHAR(20) CHECK (payment_method IN ('cash', 'transfer')),
-  payment_date DATE,
+  payment_date TIMESTAMP WITH TIME ZONE,
   payment_status VARCHAR(20) DEFAULT 'pending' CHECK (payment_status IN ('paid', 'pending')),
   note TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -50,7 +50,7 @@ CREATE TABLE orders (
 CREATE TABLE inventory (
   inventory_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   product_id UUID NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
-  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   quantity INTEGER NOT NULL,
   type VARCHAR(20) NOT NULL CHECK (type IN ('in', 'out', 'return', 'loss')),
   note TEXT,
@@ -61,7 +61,7 @@ CREATE TABLE inventory (
 -- ===== Daily_Report (สรุปรายวัน) Table =====
 CREATE TABLE daily_reports (
   report_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  date DATE NOT NULL UNIQUE,
+  date TIMESTAMP WITH TIME ZONE NOT NULL UNIQUE,
   total_sales DECIMAL(12, 2) DEFAULT 0,
   cash_received DECIMAL(12, 2) DEFAULT 0,
   pending_amount DECIMAL(12, 2) DEFAULT 0,
@@ -74,7 +74,7 @@ CREATE TABLE daily_reports (
 CREATE TABLE payments (
   payment_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-  payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  payment_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   amount DECIMAL(10, 2) NOT NULL,
   order_id UUID REFERENCES orders(order_id) ON DELETE SET NULL,
   payment_method VARCHAR(20) NOT NULL CHECK (payment_method IN ('cash', 'transfer')),

@@ -37,7 +37,7 @@
       </ion-card>
 
       <!-- Summary Cards -->
-      <div v-if="!loading && dailyReport">
+      <div v-if="!loading && (dailyReport || todayOrders.length > 0)">
         <!-- Main Summary -->
         <ion-card>
           <ion-card-header>
@@ -50,7 +50,7 @@
                 <ion-col size="6">
                   <div class="stat-box">
                     <ion-icon :icon="cartOutline" size="large" color="primary"></ion-icon>
-                    <h3>{{ dailyReport.total_orders }}</h3>
+                    <h3>{{ dailyReport?.total_orders || todayOrders.length }}</h3>
                     <p>ออเดอร์ทั้งหมด</p>
                   </div>
                 </ion-col>
@@ -80,7 +80,7 @@
                   <p>รายได้ทั้งหมด</p>
                 </ion-label>
                 <ion-note slot="end" class="amount-success">
-                  {{ formatCurrency(dailyReport.total_sales) }}
+                  {{ formatCurrency(dailyReport?.total_sales || calculateTotalSales) }}
                 </ion-note>
               </ion-item>
 
@@ -91,7 +91,18 @@
                   <p>เงินที่ชำระแล้ว</p>
                 </ion-label>
                 <ion-note slot="end" class="amount-primary">
-                  {{ formatCurrency(dailyReport.cash_received) }}
+                  {{ formatCurrency(dailyReport?.cash_received || paymentBreakdown.cash) }}
+                </ion-note>
+              </ion-item>
+
+              <ion-item>
+                <ion-icon :icon="cardOutline" slot="start" color="primary"></ion-icon>
+                <ion-label>
+                  <h3>เงินโอนที่ได้รับ</h3>
+                  <p>เงินที่โอนแล้ว</p>
+                </ion-label>
+                <ion-note slot="end" class="amount-primary">
+                  {{ formatCurrency(paymentBreakdown.transfer) }}
                 </ion-note>
               </ion-item>
 
@@ -102,18 +113,7 @@
                   <p>ยังไม่ได้ชำระ</p>
                 </ion-label>
                 <ion-note slot="end" class="amount-warning">
-                  {{ formatCurrency(dailyReport.pending_amount) }}
-                </ion-note>
-              </ion-item>
-
-              <ion-item>
-                <ion-icon :icon="trendingUpOutline" slot="start" color="tertiary"></ion-icon>
-                <ion-label>
-                  <h3>กำไรประมาณการ</h3>
-                  <p>รายได้ - ต้นทุน</p>
-                </ion-label>
-                <ion-note slot="end" class="amount-tertiary">
-                  {{ formatCurrency(estimatedProfit) }}
+                  {{ formatCurrency(dailyReport?.pending_amount || calculatePendingAmount) }}
                 </ion-note>
               </ion-item>
             </ion-list>
@@ -170,37 +170,10 @@
             </div>
           </ion-card-content>
         </ion-card>
-
-        <!-- Payment Methods Breakdown -->
-        <ion-card>
-          <ion-card-header>
-            <ion-card-title>การชำระเงิน</ion-card-title>
-          </ion-card-header>
-          <ion-card-content>
-            <ion-grid>
-              <ion-row>
-                <ion-col size="6">
-                  <div class="payment-method-box">
-                    <ion-icon :icon="cashOutline" color="success"></ion-icon>
-                    <h3>{{ formatCurrency(paymentBreakdown.cash) }}</h3>
-                    <p>เงินสด</p>
-                  </div>
-                </ion-col>
-                <ion-col size="6">
-                  <div class="payment-method-box">
-                    <ion-icon :icon="cardOutline" color="primary"></ion-icon>
-                    <h3>{{ formatCurrency(paymentBreakdown.transfer) }}</h3>
-                    <p>โอนเงิน</p>
-                  </div>
-                </ion-col>
-              </ion-row>
-            </ion-grid>
-          </ion-card-content>
-        </ion-card>
       </div>
 
       <!-- No Data -->
-      <div v-if="!loading && !dailyReport" class="ion-padding ion-text-center">
+      <div v-if="!loading && !dailyReport && todayOrders.length === 0" class="ion-padding ion-text-center">
         <ion-icon :icon="documentTextOutline" size="large" color="medium"></ion-icon>
         <p>ไม่มีข้อมูลในวันที่เลือก</p>
       </div>
@@ -218,7 +191,7 @@ import {
 } from '@ionic/vue';
 import {
   cartOutline, waterOutline, cashOutline, walletOutline, timeOutline,
-  trendingUpOutline, documentTextOutline, refreshOutline, cardOutline
+  documentTextOutline, refreshOutline, cardOutline
 } from 'ionicons/icons';
 import { getDailyReport } from '../services/reportService';
 import { getOrders } from '../services/orderService';
@@ -245,12 +218,6 @@ const totalBottles = computed(() => {
     .reduce((sum, o) => sum + o.quantity, 0);
 });
 
-const estimatedProfit = computed(() => {
-  // ต้องมีข้อมูลต้นทุนจากฐานข้อมูล
-  // ตอนนี้ใช้ประมาณการ 40% ของราคาขาย
-  return dailyReport.value ? dailyReport.value.total_sales * 0.4 : 0;
-});
-
 const paymentBreakdown = computed(() => {
   const cash = todayOrders.value
     .filter(o => o.payment_method === 'cash' && o.payment_status === 'paid' && o.status !== 'cancelled')
@@ -261,6 +228,18 @@ const paymentBreakdown = computed(() => {
     .reduce((sum, o) => sum + o.total_price, 0);
 
   return { cash, transfer };
+});
+
+const calculateTotalSales = computed(() => {
+  return todayOrders.value
+    .filter(o => o.status !== 'cancelled' && o.payment_status !== 'pending')
+    .reduce((sum, o) => sum + o.total_price, 0);
+});
+
+const calculatePendingAmount = computed(() => {
+  return todayOrders.value
+    .filter(o => o.payment_status === 'pending' && o.status !== 'cancelled')
+    .reduce((sum, o) => sum + o.total_price, 0);
 });
 
 // Methods
@@ -284,12 +263,23 @@ async function loadDailyReport() {
 
     // If no report exists, create a summary from orders
     if (!dailyReport.value && todayOrders.value.length > 0) {
+      const completedOrders = todayOrders.value.filter(o => o.status !== 'cancelled');
+      const paidOrders = todayOrders.value.filter(o => o.payment_status === 'paid' && o.status !== 'cancelled');
+      
+      // สร้าง timestamp ของวันที่เลือก
+      const reportDate = new Date(date);
+      reportDate.setHours(12, 0, 0, 0); // ตั้งเวลาเที่ยง
+      
       dailyReport.value = {
         report_id: '',
-        date,
-        total_sales: todayOrders.value.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + o.total_price, 0),
-        cash_received: todayOrders.value.filter(o => o.payment_status === 'paid').reduce((sum, o) => sum + o.total_price, 0),
-        pending_amount: todayOrders.value.filter(o => o.payment_status === 'pending' && o.status !== 'cancelled').reduce((sum, o) => sum + o.total_price, 0),
+        date: reportDate.toISOString(),
+        total_sales: completedOrders.reduce((sum, o) => sum + o.total_price, 0),
+        cash_received: paidOrders
+          .filter(o => o.payment_method === 'cash')
+          .reduce((sum, o) => sum + o.total_price, 0),
+        pending_amount: todayOrders.value
+          .filter(o => o.payment_status === 'pending' && o.status !== 'cancelled')
+          .reduce((sum, o) => sum + o.total_price, 0),
         total_orders: todayOrders.value.length,
         new_customers: 0,
         created_at: new Date().toISOString()

@@ -51,7 +51,7 @@ export async function createBulkOrders(params: {
 }) {
     try {
         const { customerName, items, paymentMethod, orderDate } = params
-        const today = orderDate || new Date().toISOString().split('T')[0]
+        const today = orderDate || new Date().toISOString()
 
         // ดึงข้อมูลสินค้าทั้งหมด
         const { data: allProducts, error: productsError } = await supabase
@@ -148,13 +148,17 @@ export async function getOrders(filters?: {
             .from('orders')
             .select(`
         *,
-        users (name, phone),
         products (name, unit)
       `)
             .order('created_at', { ascending: false })
 
         if (filters?.date) {
-            query = query.eq('order_date', filters.date)
+            // ถ้ามี date filter ให้เทียบแบบ range ของวันนั้น
+            const startOfDay = new Date(filters.date)
+            startOfDay.setHours(0, 0, 0, 0)
+            const endOfDay = new Date(filters.date)
+            endOfDay.setHours(23, 59, 59, 999)
+            query = query.gte('order_date', startOfDay.toISOString()).lte('order_date', endOfDay.toISOString())
         }
         if (filters?.user_id) {
             query = query.eq('user_id', filters.user_id)
@@ -170,11 +174,9 @@ export async function getOrders(filters?: {
 
         if (error) throw error
 
-        // Transform data to include user and product names
+        // Transform data to include product names
         const ordersWithDetails: OrderWithDetails[] = data?.map((order: any) => ({
             ...order,
-            user_name: order.users?.name,
-            user_phone: order.users?.phone,
             product_name: order.products?.name,
         })) || []
 
@@ -239,12 +241,16 @@ export async function deleteOrder(order_id: string) {
 // ===== Get Today's Orders Summary =====
 export async function getTodayOrdersSummary() {
     try {
-        const today = new Date().toISOString().split('T')[0]
+        const startOfDay = new Date()
+        startOfDay.setHours(0, 0, 0, 0)
+        const endOfDay = new Date()
+        endOfDay.setHours(23, 59, 59, 999)
 
         const { data, error } = await supabase
             .from('orders')
             .select('*')
-            .eq('order_date', today)
+            .gte('order_date', startOfDay.toISOString())
+            .lte('order_date', endOfDay.toISOString())
 
         if (error) throw error
 
@@ -284,7 +290,7 @@ export async function updatePaymentStatus(
     try {
         const updates: OrderUpdate = {
             payment_status,
-            payment_date: payment_date || new Date().toISOString().split('T')[0],
+            payment_date: payment_date || new Date().toISOString(),
         }
 
         if (payment_method) {

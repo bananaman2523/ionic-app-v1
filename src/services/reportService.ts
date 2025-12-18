@@ -3,10 +3,17 @@ import { supabase } from '../lib/supabase'
 // ===== Get Daily Report =====
 export async function getDailyReport(date: string) {
     try {
+        // แปลง date string เป็น timestamp range ของวันนั้น
+        const startOfDay = new Date(date)
+        startOfDay.setHours(0, 0, 0, 0)
+        const endOfDay = new Date(date)
+        endOfDay.setHours(23, 59, 59, 999)
+
         const { data, error } = await supabase
             .from('daily_reports')
             .select('*')
-            .eq('date', date)
+            .gte('date', startOfDay.toISOString())
+            .lte('date', endOfDay.toISOString())
             .single()
 
         if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows returned
@@ -19,17 +26,18 @@ export async function getDailyReport(date: string) {
 // ===== Get Monthly Summary =====
 export async function getMonthlySummary(year: number, month: number) {
     try {
-        // สร้างช่วงวันที่ของเดือน
-        const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-        const lastDay = new Date(year, month, 0).getDate()
-        const endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`
+        // สร้างช่วงวันที่ของเดือน เป็น timestamp
+        const startDate = new Date(year, month - 1, 1)
+        startDate.setHours(0, 0, 0, 0)
+        const endDate = new Date(year, month, 0)
+        endDate.setHours(23, 59, 59, 999)
 
         // ดึงข้อมูล daily reports
         const { data: dailyReports, error: reportError } = await supabase
             .from('daily_reports')
             .select('*')
-            .gte('date', startDate)
-            .lte('date', endDate)
+            .gte('date', startDate.toISOString())
+            .lte('date', endDate.toISOString())
             .order('date', { ascending: true })
 
         if (reportError) throw reportError
@@ -49,8 +57,8 @@ export async function getMonthlySummary(year: number, month: number) {
         quantity,
         products (cost_price)
       `)
-            .gte('order_date', startDate)
-            .lte('order_date', endDate)
+            .gte('order_date', startDate.toISOString())
+            .lte('order_date', endDate.toISOString())
             .eq('status', 'completed')
 
         if (ordersError) throw ordersError
