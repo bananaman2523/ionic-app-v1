@@ -21,7 +21,7 @@ const routes: Array<RouteRecordRaw> = [
       },
       {
         path: 'stock',
-        component: () => import('@/views/StockPage.vue')
+        component: () => import('@/views/InventoryPage.vue')
       },
       {
         path: 'tab3',

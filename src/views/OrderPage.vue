@@ -17,7 +17,7 @@
         <ion-card-content>{{ error }}</ion-card-content>
       </ion-card>
 
-      <!-- <ion-card class="products-card"> -->
+      <ion-card class="products-card">
         <ion-card-header>
           <ion-card-title>เลือกสินค้า</ion-card-title>
         </ion-card-header>
@@ -25,14 +25,14 @@
           <ion-grid class="product-grid">
             <ion-row>
               <ion-col v-for="product in products" :key="product.name" size="4" class="product-col">
-                <ion-button expand="full" color="primary" class="product-btn" @click="addOrIncrement(product.name)" :disabled="product.name === '-' || !product.value">
+                <ion-button expand="full" color="primary" class="product-btn" @click="addOrIncrement(product.name)">
                   {{ product.name }}
                 </ion-button>
               </ion-col>
             </ion-row>
           </ion-grid>
         </ion-card-content>
-      <!-- </ion-card> -->
+      </ion-card>
 
     </ion-content>
 
@@ -162,13 +162,11 @@ import {
   checkmarkCircle, checkmarkCircleOutline, callOutline, personCircleOutline,
   personAddOutline, peopleOutline, receiptOutline, createOutline, banOutline
 } from 'ionicons/icons';
-import { getAllPendingPayments } from '../services/paymentService';
-import { getUsers, createUser, updateUser, getUserOrderHistory } from '../services/userService';
-import { updatePaymentStatus } from '../services/orderService';
-import type { Database } from '../types/supabase';
-import type { OrderWithDetails } from '../services/orderService';
-import {Card, CardHeader, CardBody, CardFooter} from "@heroui/card";
 
+import { getProducts } from '../services/productService';
+import { getAllPendingPayments } from '../services/paymentService';
+import { getUsers } from '../services/userService';
+import type { Database } from '../types/supabase';
 
 const customerName = ref('');
 const showPaymentModal = ref(false);
@@ -224,23 +222,28 @@ function finishOrder() {
   paymentMethod.value = '';
   showPaymentModal.value = false;
 }
-// สินค้าแต่ละชนิด
-const products = [
-  { name: 'น้ำโหล', value: 20 },
-  { name: 'น้ำแข็ง', value: 10 },
-  { name: 'น้ำแข็งโม่', value: 15 },
-  { name: 'น้ำแข็งหลอดเล็ก', value: 12 },
-  { name: 'น้ำแข็งกั๊ก', value: 18 },
-  { name: 'ถังน้ำ', value: 25 },
-  { name: '-', value: null },
-  { name: '-', value: null },
-  { name: '-', value: null },
-];
+
+import type { Database as SupabaseDatabase } from '../types/supabase';
+type Product = SupabaseDatabase['public']['Tables']['products']['Row'];
+const products = ref<Product[]>([]);
+
+async function loadProducts() {
+  loading.value = true;
+  try {
+    const { data, error: err } = await getProducts();
+    if (err) throw new Error(err);
+    products.value = data || [];
+  } catch (err: any) {
+    error.value = err.message;
+  } finally {
+    loading.value = false;
+  }
+}
 
 const totalAmount = computed(() => {
   return cart.value.reduce((sum, item) => {
-    const product = products.find(p => p.name === item.name);
-    return sum + (product && product.value ? product.value * item.qty : 0);
+    const product = products.value.find(p => p.name === item.name);
+    return sum + (product && product.sell_price ? product.sell_price * item.qty : 0);
   }, 0);
 });
 
@@ -248,9 +251,24 @@ const totalAmount = computed(() => {
 const cart = ref<{ name: string; qty: number }[]>([]);
 
 function addOrIncrement(productName: string) {
+  const product = products.value.find(p => p.name === productName);
+  if (!product) {
+    showToast('ไม่พบสินค้านี้', 'danger');
+    return;
+  }
+
   const idx = cart.value.findIndex(item => item.name === productName);
+  const currentQty = idx > -1 ? cart.value[idx].qty : 0;
+  const newQty = currentQty + 1;
+
+  // ตรวจสอบสต็อก
+  if (product.stock_quantity !== null && newQty > product.stock_quantity) {
+    showToast(`สินค้าไม่เพียงพอ! เหลือเพียง ${product.stock_quantity} ${product.unit || 'หน่วย'}`, 'warning');
+    return;
+  }
+
   if (idx > -1) {
-    cart.value[idx].qty += 1;
+    cart.value[idx].qty = newQty;
   } else {
     cart.value.push({ name: productName, qty: 1 });
   }
@@ -261,7 +279,17 @@ function removeFromCart(productName: string) {
 }
 
 function onQtyBlur(item: { name: string; qty: number }) {
-  if (!item.qty || item.qty < 1) item.qty = 1;
+  if (!item.qty || item.qty < 1) {
+    item.qty = 1;
+    return;
+  }
+
+  // ตรวจสอบสต็อก
+  const product = products.value.find(p => p.name === item.name);
+  if (product && product.stock_quantity !== null && item.qty > product.stock_quantity) {
+    showToast(`สินค้าไม่เพียงพอ! เหลือเพียง ${product.stock_quantity} ${product.unit || 'หน่วย'}`, 'warning');
+    item.qty = product.stock_quantity;
+  }
 }
 
 type User = Database['public']['Tables']['users']['Row'];
@@ -330,6 +358,7 @@ async function showToast(message: string, color: string = 'primary') {
 }
 
 onMounted(() => {
+  loadProducts();
   loadPendingPayments();
   loadCustomers();
 });
