@@ -10,7 +10,7 @@ export async function getProducts() {
     try {
         const { data, error } = await supabase
             .from('products')
-            .select('*')
+            .select('product_id, name, cost_price, sell_price, unit, stock_quantity, min_stock, sequence, created_at, updated_at')
             .order('sequence', { ascending: true })
 
         if (error) throw error
@@ -87,13 +87,22 @@ export async function deleteProduct(product_id: string) {
 // ===== Check Low Stock Products =====
 export async function getLowStockProducts() {
     try {
+        // ดึงข้อมูลทั้งหมดแล้วกรองใน JavaScript
         const { data, error } = await supabase
             .from('products')
-            .select('*')
-            .filter('stock_quantity', 'lte', 'min_stock')
+            .select('product_id, name, cost_price, sell_price, unit, stock_quantity, min_stock, sequence')
+            .order('sequence', { ascending: true })
 
         if (error) throw error
-        return { data, error: null }
+
+        // กรองสินค้าที่สต็อกต่ำกว่า min_stock
+        const lowStockProducts = data?.filter((p: any) =>
+            p.stock_quantity !== null &&
+            p.min_stock !== null &&
+            p.stock_quantity <= p.min_stock
+        ) || []
+
+        return { data: lowStockProducts, error: null }
     } catch (error: any) {
         return { data: null, error: error.message }
     }
