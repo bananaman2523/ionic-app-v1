@@ -31,7 +31,7 @@ CREATE TABLE products (
 -- ===== Order (การสั่งจอง/สั่งน้ำ) Table =====
 CREATE TABLE orders (
   order_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  user_name TEXT NOT NULL,
   order_date DATE NOT NULL DEFAULT CURRENT_DATE,
   product_id UUID NOT NULL REFERENCES products(product_id),
   quantity INTEGER NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE payments (
 );
 
 -- ===== Indexes for Better Performance =====
-CREATE INDEX idx_orders_user_id ON orders(user_id);
+CREATE INDEX idx_orders_user_name ON orders(user_name);
 CREATE INDEX idx_orders_order_date ON orders(order_date);
 CREATE INDEX idx_orders_payment_status ON orders(payment_status);
 CREATE INDEX idx_inventory_product_id ON inventory(product_id);

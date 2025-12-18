@@ -42,6 +42,100 @@ export async function createOrder(orderData: OrderInsert) {
     }
 }
 
+// ===== Create Bulk Orders (สำหรับตะกร้าสินค้า) =====
+export async function createBulkOrders(params: {
+    customerName: string
+    items: Array<{ productName: string; qty: number }>
+    paymentMethod: 'cash' | 'qr' | 'credit'
+    orderDate?: string
+}) {
+    try {
+        const { customerName, items, paymentMethod, orderDate } = params
+        const today = orderDate || new Date().toISOString().split('T')[0]
+
+        // ดึงข้อมูลสินค้าทั้งหมด
+        const { data: allProducts, error: productsError } = await supabase
+            .from('products')
+            .select('*')
+
+        if (productsError) throw productsError
+        if (!allProducts || allProducts.length === 0) throw new Error('ไม่พบข้อมูลสินค้า')
+
+        // สร้าง orders
+        const ordersToInsert = []
+
+        for (const item of items) {
+            const product = allProducts.find((p: any) => p.name === item.productName)
+            if (!product) {
+                throw new Error(`ไม่พบสินค้า: ${item.productName}`)
+            }
+
+            // ตรวจสอบสต็อก
+            if ((product as any).stock_quantity !== null && item.qty > (product as any).stock_quantity) {
+                throw new Error(`สต็อก ${item.productName} ไม่เพียงพอ (คงเหลือ ${(product as any).stock_quantity})`)
+            }
+
+            const totalPrice = ((product as any).sell_price || 0) * item.qty
+            const paymentStatus = paymentMethod === 'credit' ? 'pending' : 'paid'
+            const actualPaymentMethod = paymentMethod === 'qr' ? 'transfer' : paymentMethod === 'credit' ? 'cash' : 'cash'
+
+            ordersToInsert.push({
+                user_name: customerName,
+                product_id: (product as any).product_id,
+                order_date: today,
+                quantity: item.qty,
+                price_per_unit: (product as any).sell_price || 0,
+                total_price: totalPrice,
+                payment_method: actualPaymentMethod,
+                payment_status: paymentStatus,
+                payment_date: paymentStatus === 'paid' ? today : null,
+                status: 'completed'
+            })
+        }
+
+        // บันทึกทั้งหมด
+        const { data, error } = await supabase
+            .from('orders')
+            .insert(ordersToInsert as any)
+            .select()
+
+        if (error) throw error
+
+        // อัพเดทสต็อกและบันทึก inventory
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i]
+            const product = allProducts.find((p: any) => p.name === item.productName)
+            const orderData = data?.[i]
+
+            if (product && (product as any).stock_quantity !== null) {
+                const newStock = (product as any).stock_quantity - item.qty
+
+                // อัพเดทสต็อก
+                await supabase
+                    .from('products')
+                    .update({ stock_quantity: newStock } as any)
+                    .eq('product_id', (product as any).product_id)
+
+                // บันทึกประวัติ inventory
+                await supabase
+                    .from('inventory')
+                    .insert({
+                        product_id: (product as any).product_id,
+                        date: today,
+                        quantity: item.qty,
+                        type: 'out',
+                        note: `ขายให้ลูกค้า: ${customerName}`,
+                        order_id: orderData?.order_id || null
+                    } as any)
+            }
+        }
+
+        return { data, error: null }
+    } catch (error: any) {
+        return { data: null, error: error.message }
+    }
+}
+
 // ===== Get Orders =====
 export async function getOrders(filters?: {
     date?: string

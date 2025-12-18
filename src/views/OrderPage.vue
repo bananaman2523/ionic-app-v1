@@ -132,40 +132,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import {
-  IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonFooter, IonSegment, IonSegmentButton,
-  IonLabel, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent,
-  IonList, IonItem, IonNote, IonBadge, IonIcon, IonGrid, IonRow, IonCol, IonButton,
-  IonSearchbar, IonAvatar, IonModal, IonInput, IonTextarea, IonSelect, IonSelectOption,
-  IonButtons, IonSpinner, IonItemSliding, IonItemOptions, IonItemOption,
-  alertController, toastController, actionSheetController, IonRadio, IonRadioGroup
+  IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonFooter,
+  IonLabel, IonCard, IonCardHeader, IonCardTitle, IonCardContent,
+  IonList, IonItem, IonGrid, IonRow, IonCol, IonButton,
+  IonModal, IonInput, IonButtons, IonSpinner, toastController, IonRadio, IonRadioGroup
 } from '@ionic/vue';
-// ยืนยันการกระทำด้วย ActionSheet
-const confirmAction = async (header = 'Are you sure?') => {
-  const actionSheet = await actionSheetController.create({
-    header,
-    buttons: [
-      {
-        text: 'Yes',
-        role: 'confirm',
-      },
-      {
-        text: 'No',
-        role: 'cancel',
-      },
-    ],
-  });
-  await actionSheet.present();
-  const { role } = await actionSheet.onWillDismiss();
-  return role === 'confirm';
-};
-import {
-  checkmarkCircle, checkmarkCircleOutline, callOutline, personCircleOutline,
-  personAddOutline, peopleOutline, receiptOutline, createOutline, banOutline
-} from 'ionicons/icons';
 
 import { getProducts } from '../services/productService';
 import { getAllPendingPayments } from '../services/paymentService';
 import { getUsers } from '../services/userService';
+import { createBulkOrders } from '../services/orderService';
 import type { Database } from '../types/supabase';
 
 const customerName = ref('');
@@ -209,18 +185,36 @@ function confirmQRPayment() {
   showQRModal.value = false;
 }
 
-function finishOrder() {
-  showToast(`ยืนยันออเดอร์ (demo)${customerName.value ? ' : ' + customerName.value : ''} | ชำระเงิน: ${paymentOptions.find(opt => opt.value === paymentMethod.value)?.label}`,'success');
-  console.log('Order', {
-    customerName: customerName.value,
-    paymentMethod: paymentMethod.value,
-    cart: cart.value
-  });
+async function finishOrder() {
+  loading.value = true;
   
-  cart.value = [];
-  customerName.value = '';
-  paymentMethod.value = '';
-  showPaymentModal.value = false;
+  try {
+    const { data, error: err } = await createBulkOrders({
+      customerName: customerName.value,
+      items: cart.value.map(item => ({
+        productName: item.name,
+        qty: item.qty
+      })),
+      paymentMethod: paymentMethod.value as 'cash' | 'qr' | 'credit'
+    });
+
+    if (err) throw new Error(err);
+    
+    showToast(`บันทึกออเดอร์สำเร็จ! ${customerName.value} - ${paymentOptions.find(opt => opt.value === paymentMethod.value)?.label}`, 'success');
+    
+    // ล้างข้อมูล
+    cart.value = [];
+    customerName.value = '';
+    paymentMethod.value = '';
+    showPaymentModal.value = false;
+    
+    // โหลดสินค้าใหม่เพื่ออัพเดทสต็อก
+    await loadProducts();
+  } catch (err: any) {
+    showToast(err.message || 'เกิดข้อผิดพลาดในการบันทึกออเดอร์', 'danger');
+  } finally {
+    loading.value = false;
+  }
 }
 
 import type { Database as SupabaseDatabase } from '../types/supabase';

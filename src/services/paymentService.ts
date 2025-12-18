@@ -80,10 +80,9 @@ export async function getAllPendingPayments() {
             .from('orders')
             .select(`
         order_id,
-        user_id,
+        user_name,
         order_date,
-        total_price,
-        users (name, phone)
+        total_price
     `)
             .eq('payment_status', 'pending')
             .order('order_date', { ascending: true })
@@ -99,9 +98,7 @@ export async function getAllPendingPayments() {
 
             return {
                 order_id: order.order_id,
-                user_id: order.user_id,
-                user_name: order.users?.name,
-                user_phone: order.users?.phone,
+                user_name: order.user_name,
                 order_date: order.order_date,
                 amount: order.total_price,
                 days_overdue: diffDays
