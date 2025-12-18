@@ -13,6 +13,11 @@
     </ion-header>
 
     <ion-content :fullscreen="true">
+      <!-- Pull to Refresh -->
+      <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
+        <ion-refresher-content></ion-refresher-content>
+      </ion-refresher>
+
       <!-- Loading -->
       <div v-if="loading" class="ion-padding ion-text-center">
         <ion-spinner></ion-spinner>
@@ -264,7 +269,7 @@ import {
   IonIcon, IonList, IonItem, IonLabel, IonNote, IonBadge, IonCard, IonCardHeader,
   IonCardTitle, IonCardSubtitle, IonCardContent, IonModal, IonInput, IonTextarea,
   IonSelect, IonSelectOption, IonSpinner, IonItemSliding, IonItemOptions,
-  IonItemOption, toastController
+  IonItemOption, IonRefresher, IonRefresherContent, toastController
 } from '@ionic/vue';
 import {
   addCircleOutline, warningOutline, createOutline, arrowDownCircleOutline,
@@ -329,7 +334,11 @@ async function loadProducts() {
 
 async function loadLowStockProducts() {
   const { data } = await getLowStockProducts();
-  lowStockProducts.value = data || [];
+  lowStockProducts.value = (data || []).map((item: any) => ({
+    ...item,
+    created_at: item.created_at || '',
+    updated_at: item.updated_at || ''
+  }));
 }
 
 async function loadInventoryHistory() {
@@ -505,6 +514,15 @@ async function showToast(message: string, color: string = 'primary') {
     position: 'top'
   });
   await toast.present();
+}
+
+async function handleRefresh(event: any) {
+  await Promise.all([
+    loadProducts(),
+    loadLowStockProducts(),
+    loadInventoryHistory()
+  ]);
+  event.target.complete();
 }
 
 onMounted(() => {

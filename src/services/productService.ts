@@ -1,7 +1,6 @@
 import { supabase } from '../lib/supabase'
 import type { Database } from '../types/supabase'
 
-type Product = Database['public']['Tables']['products']['Row']
 type ProductInsert = Database['public']['Tables']['products']['Insert']
 type ProductUpdate = Database['public']['Tables']['products']['Update']
 
@@ -153,6 +152,7 @@ export async function updateStock(
                 product_id,
                 quantity,
                 type,
+                date: new Date().toISOString(),
                 note: note || null,
             } as any)
 

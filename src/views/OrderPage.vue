@@ -12,6 +12,10 @@
         <ion-spinner></ion-spinner>
       </div>
 
+      <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
+        <ion-refresher-content></ion-refresher-content>
+      </ion-refresher>
+
       <!-- Error -->
       <ion-card v-if="error" color="danger">
         <ion-card-content>{{ error }}</ion-card-content>
@@ -135,7 +139,7 @@ import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonFooter,
   IonLabel, IonCard, IonCardHeader, IonCardTitle, IonCardContent,
   IonList, IonItem, IonGrid, IonRow, IonCol, IonButton,
-  IonModal, IonInput, IonButtons, IonSpinner, toastController, IonRadio, IonRadioGroup
+  IonModal, IonInput, IonButtons, IonSpinner, toastController, IonRadio, IonRadioGroup, IonRefresher, IonRefresherContent
 } from '@ionic/vue';
 
 import { getProducts } from '../services/productService';
@@ -189,7 +193,7 @@ async function finishOrder() {
   loading.value = true;
   
   try {
-    const { data, error: err } = await createBulkOrders({
+    const { error: err } = await createBulkOrders({
       customerName: customerName.value,
       items: cart.value.map(item => ({
         productName: item.name,
@@ -314,7 +318,15 @@ async function loadPendingPayments() {
   try {
     const { data, error: err } = await getAllPendingPayments();
     if (err) throw new Error(err);
-    pendingPayments.value = data || [];
+    pendingPayments.value = (data || []).map((item: any) => ({
+      order_id: item.order_id,
+      user_id: item.user_id || '',
+      user_name: item.user_name,
+      user_phone: item.user_phone || '',
+      order_date: item.order_date,
+      amount: item.amount,
+      days_overdue: item.days_overdue
+    }));
   } catch (err: any) {
     error.value = err.message;
   } finally {
@@ -356,6 +368,15 @@ onMounted(() => {
   loadPendingPayments();
   loadCustomers();
 });
+
+async function handleRefresh(event: any) {
+  await Promise.all([
+    loadProducts(),
+    loadPendingPayments(),
+    loadCustomers()
+  ]);
+  event.target.complete();
+}
 </script>
 
 <style scoped>

@@ -8,10 +8,6 @@
         <ion-item lines="none">
           <ion-label>วันที่:</ion-label>
           <ion-datetime-button datetime="reportDate"></ion-datetime-button>
-          <ion-button slot="end" @click="loadDailyReport">
-            <ion-icon :icon="refreshOutline"></ion-icon>
-            รีเฟรช
-          </ion-button>
         </ion-item>
       </ion-toolbar>
     </ion-header>
@@ -25,6 +21,10 @@
           @ionChange="loadDailyReport"
         ></ion-datetime>
       </ion-modal>
+
+      <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
+        <ion-refresher-content></ion-refresher-content>
+      </ion-refresher>
 
       <!-- Loading -->
       <div v-if="loading" class="ion-padding ion-text-center">
@@ -186,12 +186,12 @@ import { ref, computed, onMounted } from 'vue';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonCard, IonCardHeader,
   IonCardTitle, IonCardSubtitle, IonCardContent, IonList, IonItem, IonLabel,
-  IonNote, IonIcon, IonGrid, IonRow, IonCol, IonBadge, IonButton, IonSpinner,
-  IonDatetime, IonDatetimeButton, IonModal
+  IonNote, IonIcon, IonGrid, IonRow, IonCol, IonBadge, IonSpinner,
+  IonDatetime, IonDatetimeButton, IonModal, IonRefresher, IonRefresherContent
 } from '@ionic/vue';
 import {
   cartOutline, waterOutline, cashOutline, walletOutline, timeOutline,
-  documentTextOutline, refreshOutline, cardOutline
+  documentTextOutline, cardOutline
 } from 'ionicons/icons';
 import { getDailyReport } from '../services/reportService';
 import { getOrders } from '../services/orderService';
@@ -320,6 +320,13 @@ function formatDate(dateString: string) {
 onMounted(() => {
   loadDailyReport();
 });
+
+async function handleRefresh(event: any) {
+  await Promise.all([
+    loadDailyReport()
+  ]);
+  event.target.complete();
+}
 </script>
 
 <style scoped>

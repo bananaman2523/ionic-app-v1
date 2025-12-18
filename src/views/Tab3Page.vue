@@ -395,7 +395,11 @@ async function loadPendingPayments() {
   try {
     const { data, error: err } = await getAllPendingPayments();
     if (err) throw new Error(err);
-    pendingPayments.value = data || [];
+    pendingPayments.value = (data || []).map((item: any) => ({
+      ...item,
+      user_id: item.user_id || '',
+      user_phone: item.user_phone || ''
+    }));
   } catch (err: any) {
     error.value = err.message;
   } finally {
