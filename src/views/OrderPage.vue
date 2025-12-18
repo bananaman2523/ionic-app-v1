@@ -124,6 +124,7 @@
       </ion-header>
       <ion-content class="ion-padding ion-text-center">
         <img :src="qrImageUrl" alt="QR Code" style="max-width: 100%; height: auto; margin: 24px 0;" />
+        <!-- <img src="https://promptpay.io/0954020819/50.89999.png" alt="QR Code" style="max-width: 100%; height: auto; margin: 24px 0;" > -->
         <ion-title style="padding-bottom: 24px;">ยอดรวม: {{ totalAmount }} บาท</ion-title>
         <ion-button color="success" class="cart-action-btn" expand="block" @click="confirmQRPayment()">ยืนยันการชำระเงิน</ion-button>
       </ion-content>
@@ -152,7 +153,6 @@ const customerName = ref('');
 const showPaymentModal = ref(false);
 const showQRModal = ref(false);
 const paymentMethod = ref('');
-const qrImageUrl = '/public/qr-demo.png'; // เปลี่ยน path ตามไฟล์จริง
 const paymentOptions = [
   { label: 'QR', value: 'qr', icon: 'qr-code-outline' },
   { label: 'เงินสด', value: 'cash', icon: 'cash-outline' },
@@ -244,6 +244,8 @@ const totalAmount = computed(() => {
     return sum + (product && product.sell_price ? product.sell_price * item.qty : 0);
   }, 0);
 });
+
+const qrImageUrl = computed(() => `https://promptpay.io/0954020819/${totalAmount.value}.png`);
 
 // ตะกร้าสินค้า
 const cart = ref<{ name: string; qty: number }[]>([]);

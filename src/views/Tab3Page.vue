@@ -9,9 +9,9 @@
           <ion-segment-button value="pending">
             <ion-label>ค้างชำระ</ion-label>
           </ion-segment-button>
-          <ion-segment-button value="customers">
+          <!-- <ion-segment-button value="customers">
             <ion-label>รายชื่อลูกค้า</ion-label>
-          </ion-segment-button>
+          </ion-segment-button> -->
         </ion-segment>
       </ion-toolbar>
     </ion-header>
@@ -21,6 +21,10 @@
       <div v-if="loading" class="ion-padding ion-text-center">
         <ion-spinner></ion-spinner>
       </div>
+
+      <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
+        <ion-refresher-content></ion-refresher-content>
+      </ion-refresher>
 
       <!-- Error -->
       <ion-card v-if="error" color="danger">
@@ -314,7 +318,7 @@ import {
   IonList, IonItem, IonNote, IonBadge, IonIcon, IonGrid, IonRow, IonCol, IonButton,
   IonSearchbar, IonAvatar, IonModal, IonInput, IonTextarea, IonSelect, IonSelectOption,
   IonButtons, IonSpinner, IonItemSliding, IonItemOptions, IonItemOption,
-  alertController, toastController
+  alertController, toastController, IonRefresher, IonRefresherContent
 } from '@ionic/vue';
 import {
   checkmarkCircle, checkmarkCircleOutline, callOutline, personCircleOutline,
@@ -658,6 +662,14 @@ onMounted(() => {
   loadPendingPayments();
   loadCustomers();
 });
+
+async function handleRefresh(event: any) {
+  await Promise.all([
+    loadPendingPayments(),
+    loadCustomers()
+  ]);
+  event.target.complete();
+}
 </script>
 
 <style scoped>
