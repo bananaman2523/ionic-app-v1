@@ -13,15 +13,15 @@
           <ion-label>คลังสินค้า</ion-label>
         </ion-tab-button>
 
-        <!-- <ion-tab-button tab="tab2" href="/tabs/tab2">
+        <ion-tab-button tab="daily_summary" href="/tabs/daily_summary">
           <ion-icon aria-hidden="true" :icon="statsChartOutline" />
           <ion-label>สรุปรายวัน</ion-label>
-        </ion-tab-button> -->
+        </ion-tab-button>
 
-        <!-- <ion-tab-button tab="tab3" href="/tabs/tab3">
+        <ion-tab-button tab="tab3" href="/tabs/tab3">
           <ion-icon aria-hidden="true" :icon="peopleOutline" />
           <ion-label>ลูกค้า</ion-label>
-        </ion-tab-button> -->
+        </ion-tab-button>
       </ion-tab-bar>
     </ion-tabs>
   </ion-page>

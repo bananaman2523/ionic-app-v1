@@ -218,6 +218,15 @@
             </ion-item>
 
             <ion-item>
+              <ion-label position="stacked">ลำดับ</ion-label>
+              <ion-input
+                v-model.number="productForm.sequence"
+                type="number"
+                placeholder="0"
+              ></ion-input>
+            </ion-item>
+
+            <ion-item>
               <ion-label position="stacked">สต็อกเริ่มต้น</ion-label>
               <ion-input
                 v-model.number="productForm.stock_quantity"
@@ -288,6 +297,7 @@ const productForm = ref({
   cost_price: 0,
   sell_price: 0,
   unit: '',
+  sequence: 0,
   stock_quantity: 0,
   min_stock: 10
 });
@@ -385,6 +395,7 @@ function openAddProductModal() {
     cost_price: 0,
     sell_price: 0,
     unit: '',
+    sequence: 0,
     stock_quantity: 0,
     min_stock: 10
   };
@@ -403,6 +414,7 @@ function editProduct(product: Product) {
     cost_price: product.cost_price,
     sell_price: product.sell_price,
     unit: product.unit,
+    sequence: product.sequence || 0,
     stock_quantity: product.stock_quantity,
     min_stock: product.min_stock || 10
   };

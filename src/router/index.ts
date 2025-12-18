@@ -30,7 +30,11 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: 'order',
         component: () => import('@/views/OrderPage.vue')
-      }
+      },
+      {
+        path: 'daily_summary',
+        component: () => import('@/views/DailySummaryPage.vue')
+      },
     ]
   }
 ]

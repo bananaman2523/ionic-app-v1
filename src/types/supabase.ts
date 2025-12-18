@@ -45,6 +45,7 @@ export interface Database {
                     cost_price: number
                     sell_price: number
                     unit: string
+                    sequence: number
                     stock_quantity: number
                     min_stock: number | null
                     created_at: string
