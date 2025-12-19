@@ -1,5 +1,5 @@
 {
-  "name": "ionic-app-v1",
+  "name": "hongtae-delivery",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -45,5 +45,5 @@
     "vitest": "^3.2.4",
     "vue-tsc": "^2.1.10"
   },
-  "description": "An Ionic project"
+  "description": "HongTae Delivery Ionic project"
 }
