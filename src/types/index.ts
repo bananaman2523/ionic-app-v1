@@ -82,6 +82,7 @@ export interface OrderWithDetails extends Order {
     user_name?: string;
     product_name?: string;
     user_phone?: string;
+    cancellation_reason?: 'return' | 'loss' | null;
 }
 
 export interface PendingPaymentInfo {

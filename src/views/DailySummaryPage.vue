@@ -242,7 +242,7 @@
                           {{ getPaymentStatusText(item.payment_status) }}
                         </ion-badge>
                         <ion-badge v-if="item.status === 'cancelled'" color="danger" style="font-size: 10px; margin-left: 4px;">
-                          {{ getCancellationText(item.cancellation_reason) }}
+                          {{ getCancellationText(item.cancellation_reason ?? undefined) }}
                         </ion-badge>
                       </p>
                     </ion-label>
@@ -301,7 +301,7 @@ import {
   documentTextOutline, cardOutline, closeCircleOutline
 } from 'ionicons/icons';
 import { getDailyReport } from '../services/reportService';
-import { getOrders, updateOrder, updatePaymentStatus, cancelOrderWithReason } from '../services/orderService';
+import { getOrders, updatePaymentStatus, cancelOrderWithReason } from '../services/orderService';
 import type { OrderWithDetails } from '../services/orderService';
 import type { Database } from '../types/supabase';
 
@@ -345,7 +345,7 @@ const groupedOrders = computed(() => {
         order_date: order.order_date,
         status: 'completed', // default
         payment_status: 'paid', // default
-        payment_method: order.payment_method,
+        payment_method: order.payment_method ?? '',
         total_price: 0,
         items: []
       };
@@ -729,10 +729,6 @@ function getCancellationText(reason?: string) {
 onMounted(() => {
   loadDailyReport();
 });
-
-function viewOrderDetail(order: OrderWithDetails) {
-  console.log('View order:', order);
-}
 
 async function handleRefresh(event: any) {
   await Promise.all([

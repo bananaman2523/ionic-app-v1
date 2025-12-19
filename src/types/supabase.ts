@@ -87,6 +87,7 @@ export interface Database {
                     payment_method: 'cash' | 'transfer' | null
                     payment_date: string | null
                     payment_status: 'paid' | 'pending'
+                    cancellation_reason?: 'return' | 'loss' | null;
                     note: string | null
                     created_at: string
                     updated_at: string
