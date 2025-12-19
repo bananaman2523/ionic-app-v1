@@ -310,3 +310,131 @@ export async function updatePaymentStatus(
         return { data: null, error: error.message }
     }
 }
+
+// ===== Cancel Order with Stock Management =====
+export async function cancelOrderWithReason(
+    order_id: string,
+    cancellation_reason: 'return' | 'loss',
+    cancel_quantity?: number
+) {
+    try {
+        // ดึงข้อมูล order
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('order_id', order_id)
+            .single()
+
+        if (orderError) throw orderError
+        if (!order) throw new Error('ไม่พบออเดอร์')
+
+        const orderData = order as any
+        const quantityToCancel = cancel_quantity || orderData.quantity
+
+        // ตรวจสอบจำนวนที่ยกเลิก
+        if (quantityToCancel > orderData.quantity) {
+            throw new Error('จำนวนที่ยกเลิกมากกว่าจำนวนในออเดอร์')
+        }
+
+        // ถ้ายกเลิกบางส่วน
+        if (quantityToCancel < orderData.quantity) {
+            const remainingQuantity = orderData.quantity - quantityToCancel
+
+            // สร้าง order ใหม่สำหรับส่วนที่ยกเลิก
+            const cancelledOrder = {
+                user_name: orderData.user_name,
+                order_date: orderData.order_date,
+                product_id: orderData.product_id,
+                quantity: quantityToCancel,
+                status: 'cancelled',
+                price_per_unit: orderData.price_per_unit,
+                total_price: orderData.price_per_unit * quantityToCancel,
+                payment_method: orderData.payment_method,
+                payment_date: orderData.payment_date,
+                payment_status: orderData.payment_status,
+                cancellation_reason,
+                note: orderData.note
+            }
+
+            // สร้าง order ที่ยกเลิก
+            const { error: insertError } = await supabase
+                .from('orders')
+                .insert(cancelledOrder as any)
+
+            if (insertError) throw insertError
+
+            // อัพเดท order เดิมให้เหลือเฉพาะจำนวนที่ไม่ยกเลิก
+            const { error: updateError } = await supabase
+                .from('orders')
+                .update({
+                    quantity: remainingQuantity,
+                    total_price: orderData.price_per_unit * remainingQuantity
+                } as any)
+                .eq('order_id', order_id)
+
+            if (updateError) throw updateError
+        } else {
+            // ยกเลิกทั้งหมด - อัพเดทสถานะออเดอร์
+            const { error: updateError } = await supabase
+                .from('orders')
+                .update({
+                    status: 'cancelled',
+                    cancellation_reason
+                } as any)
+                .eq('order_id', order_id)
+
+            if (updateError) throw updateError
+        }
+
+        // ถ้าเป็น return ให้คืนสต็อก
+        if (cancellation_reason === 'return') {
+            // ดึงข้อมูลสินค้าปัจจุบัน
+            const { data: product, error: productError } = await supabase
+                .from('products')
+                .select('stock_quantity')
+                .eq('product_id', orderData.product_id)
+                .single()
+
+            if (productError) throw productError
+
+            // อัพเดทสต็อก (เพิ่มกลับเข้าไป)
+            const newStock = ((product as any).stock_quantity || 0) + quantityToCancel
+
+            const { error: stockError } = await supabase
+                .from('products')
+                .update({ stock_quantity: newStock } as any)
+                .eq('product_id', orderData.product_id)
+
+            if (stockError) throw stockError
+
+            // บันทึกใน inventory
+            await supabase
+                .from('inventory')
+                .insert({
+                    product_id: orderData.product_id,
+                    date: new Date().toISOString(),
+                    quantity: quantityToCancel,
+                    type: 'return',
+                    note: `คืนสินค้า - ${orderData.user_name} (${quantityToCancel} จาก ${orderData.quantity})`,
+                    order_id: order_id
+                } as any)
+        } else {
+            // บันทึกใน inventory เป็น loss
+            await supabase
+                .from('inventory')
+                .insert({
+                    product_id: orderData.product_id,
+                    date: new Date().toISOString(),
+                    quantity: quantityToCancel,
+                    type: 'loss',
+                    note: `สินค้าเสียหาย - ${orderData.user_name} (${quantityToCancel} จาก ${orderData.quantity})`,
+                    order_id: order_id
+                } as any)
+        }
+
+        return { error: null }
+    } catch (error: any) {
+        return { error: error.message }
+    }
+}
+

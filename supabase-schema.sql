@@ -41,6 +41,7 @@ CREATE TABLE orders (
   payment_method VARCHAR(20) CHECK (payment_method IN ('cash', 'transfer')),
   payment_date TIMESTAMP WITH TIME ZONE,
   payment_status VARCHAR(20) DEFAULT 'pending' CHECK (payment_status IN ('paid', 'pending')),
+  cancellation_reason VARCHAR(20) CHECK (cancellation_reason IN ('return', 'loss')),
   note TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
