@@ -62,8 +62,8 @@
         <ion-item-sliding v-for="order in orders" :key="order.order_id">
           <ion-item button @click="viewOrderDetail(order)">
             <ion-label>
-              <h2>{{ order.user_name }}</h2>
-              <p>{{ order.product_name }} x {{ order.quantity }}</p>
+              <h2 style="padding-bottom: 4px;">{{ order.user_name }}</h2>
+              <!-- <p>{{ order.product_name }} x {{ order.quantity }}</p> -->
               <p>
                 <ion-badge :color="getStatusColor(order.status)">
                   {{ getStatusText(order.status) }}
@@ -74,8 +74,8 @@
               </p>
             </ion-label>
             <ion-note slot="end">
-              <strong>{{ formatCurrency(order.total_price) }}</strong><br>
-              <small>{{ order.payment_method === 'cash' ? 'เงินสด' : 'โอน' }}</small>
+              <strong style="float: right;">{{ formatCurrency(order.total_price) }}</strong><br>
+              <medium style="float: right;">{{ order.payment_method === 'cash' ? 'เงินสด' : 'โอน' }}</medium>
             </ion-note>
           </ion-item>
 

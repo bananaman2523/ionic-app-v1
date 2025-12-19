@@ -245,7 +245,7 @@ const totalAmount = computed(() => {
   }, 0);
 });
 
-const qrImageUrl = computed(() => `https://promptpay.io/0954020819/${totalAmount.value}.png`);
+const qrImageUrl = computed(() => `https://promptpay.io/0862074744/${totalAmount.value}.png`);
 
 // ตะกร้าสินค้า
 const cart = ref<{ name: string; qty: number }[]>([]);
