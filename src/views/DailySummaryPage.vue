@@ -39,7 +39,7 @@
       <!-- Summary Cards -->
       <div v-if="!loading && (dailyReport || todayOrders.length > 0)">
         <!-- Main Summary -->
-        <ion-card>
+        <!-- <ion-card>
           <ion-card-header>
             <ion-card-subtitle>{{ formatDate(selectedDate) }}</ion-card-subtitle>
             <ion-card-title>สรุปยอดขาย</ion-card-title>
@@ -64,7 +64,7 @@
               </ion-row>
             </ion-grid>
           </ion-card-content>
-        </ion-card>
+        </ion-card> -->
 
         <!-- Financial Summary -->
         <ion-card>

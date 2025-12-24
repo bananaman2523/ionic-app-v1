@@ -269,7 +269,7 @@ import {
   IonIcon, IonList, IonItem, IonLabel, IonNote, IonBadge, IonCard, IonCardHeader,
   IonCardTitle, IonCardSubtitle, IonCardContent, IonModal, IonInput, IonTextarea,
   IonSelect, IonSelectOption, IonSpinner, IonItemSliding, IonItemOptions,
-  IonItemOption, IonRefresher, IonRefresherContent, toastController
+  IonItemOption, IonRefresher, IonRefresherContent, toastController, onIonViewWillEnter
 } from '@ionic/vue';
 import {
   addCircleOutline, warningOutline, createOutline, arrowDownCircleOutline,
@@ -526,6 +526,12 @@ async function handleRefresh(event: any) {
 }
 
 onMounted(() => {
+  loadProducts();
+  loadLowStockProducts();
+  loadInventoryHistory();
+});
+
+onIonViewWillEnter(() => {
   loadProducts();
   loadLowStockProducts();
   loadInventoryHistory();

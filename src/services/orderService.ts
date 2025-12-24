@@ -137,7 +137,194 @@ export async function createBulkOrders(params: {
     }
 }
 
-// ===== Get Orders =====
+// ===== Create Pre-Order (สั่งจองล่วงหน้า) =====
+export async function createPreOrder(params: {
+    customerName: string
+    items: Array<{ productName: string; qty: number }>
+    planDate: string
+    note?: string
+}) {
+    try {
+        const { customerName, items, planDate, note } = params
+        const today = new Date().toISOString()
+
+        // ดึงข้อมูลสินค้าทั้งหมด
+        const { data: allProducts, error: productsError } = await supabase
+            .from('products')
+            .select('*')
+
+        if (productsError) throw productsError
+        if (!allProducts || allProducts.length === 0) throw new Error('ไม่พบข้อมูลสินค้า')
+
+        // สร้าง orders แบบ pre-order
+        const ordersToInsert = []
+
+        for (const item of items) {
+            const product = allProducts.find((p: any) => p.name === item.productName)
+            if (!product) {
+                throw new Error(`ไม่พบสินค้า: ${item.productName}`)
+            }
+
+            const totalPrice = ((product as any).sell_price || 0) * item.qty
+
+            ordersToInsert.push({
+                user_name: customerName,
+                product_id: (product as any).product_id,
+                order_date: planDate, // วันที่จะส่งสินค้า
+                quantity: item.qty,
+                price_per_unit: (product as any).sell_price || 0,
+                total_price: totalPrice,
+                payment_method: null, // ยังไม่ได้ชำระ
+                payment_status: 'pending',
+                payment_date: null,
+                status: 'pending', // สถานะรอดำเนินการ (สั่งจอง)
+                note: note || `[สั่งจองล่วงหน้า] สร้างเมื่อ ${new Date(today).toLocaleDateString('th-TH')}`
+            })
+        }
+
+        // บันทึกทั้งหมด
+        const { data, error } = await supabase
+            .from('orders')
+            .insert(ordersToInsert as any)
+            .select()
+
+        if (error) throw error
+
+        return { data, error: null }
+    } catch (error: any) {
+        return { data: null, error: error.message }
+    }
+}
+
+// ===== Get Pre-Orders (ดึงรายการสั่งจอง) =====
+export async function getPreOrders(filters?: {
+    date?: string
+    customerName?: string
+}) {
+    try {
+        let query = supabase
+            .from('orders')
+            .select(`
+                *,
+                products (name, unit)
+            `)
+            .eq('status', 'pending')
+            .like('note', '%สั่งจองล่วงหน้า%')
+            .order('order_date', { ascending: true })
+
+        if (filters?.date) {
+            const startOfDay = new Date(filters.date)
+            startOfDay.setHours(0, 0, 0, 0)
+            const endOfDay = new Date(filters.date)
+            endOfDay.setHours(23, 59, 59, 999)
+            query = query.gte('order_date', startOfDay.toISOString()).lte('order_date', endOfDay.toISOString())
+        }
+
+        if (filters?.customerName) {
+            query = query.ilike('user_name', `%${filters.customerName}%`)
+        }
+
+        const { data, error } = await query
+
+        if (error) throw error
+
+        // Transform data to include product names
+        const ordersWithDetails: OrderWithDetails[] = data?.map((order: any) => ({
+            ...order,
+            product_name: order.products?.name,
+        })) || []
+
+        return { data: ordersWithDetails, error: null }
+    } catch (error: any) {
+        return { data: null, error: error.message }
+    }
+}
+
+// ===== Complete Pre-Order (ทำรายการสั่งจองเสร็จสิ้น) =====
+export async function completePreOrder(
+    order_id: string,
+    paymentMethod: 'cash' | 'transfer'
+) {
+    try {
+        const today = new Date().toISOString()
+
+        // ดึงข้อมูล order
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .select('*, products(name, stock_quantity)')
+            .eq('order_id', order_id)
+            .single()
+
+        if (orderError) throw orderError
+        if (!order) throw new Error('ไม่พบรายการสั่งจอง')
+
+        // ตรวจสอบสต็อก
+        const product = (order as any).products
+        if (product && product.stock_quantity !== null && (order as any).quantity > product.stock_quantity) {
+            throw new Error(`สต็อก ${product.name} ไม่เพียงพอ (คงเหลือ ${product.stock_quantity})`)
+        }
+
+        // อัพเดท order เป็น completed
+        const { data, error } = await supabase
+            .from('orders')
+            .update({
+                status: 'completed',
+                payment_status: 'paid',
+                payment_method: paymentMethod,
+                payment_date: today
+            } as any)
+            .eq('order_id', order_id)
+            .select()
+            .single()
+
+        if (error) throw error
+
+        // อัพเดทสต็อกและบันทึก inventory
+        if (product && product.stock_quantity !== null) {
+            const newStock = product.stock_quantity - (order as any).quantity
+
+            await supabase
+                .from('products')
+                .update({ stock_quantity: newStock } as any)
+                .eq('product_id', (order as any).product_id)
+
+            await supabase
+                .from('inventory')
+                .insert({
+                    product_id: (order as any).product_id,
+                    date: today,
+                    quantity: (order as any).quantity,
+                    type: 'out',
+                    note: `ส่งสินค้าจากสั่งจอง: ${(order as any).user_name}`,
+                    order_id: order_id
+                } as any)
+        }
+
+        return { data, error: null }
+    } catch (error: any) {
+        return { data: null, error: error.message }
+    }
+}
+
+// ===== Cancel Pre-Order (ยกเลิกสั่งจอง) =====
+export async function cancelPreOrder(order_id: string) {
+    try {
+        const { data, error } = await supabase
+            .from('orders')
+            .update({
+                status: 'cancelled',
+                note: '[ยกเลิกสั่งจอง]'
+            } as any)
+            .eq('order_id', order_id)
+            .select()
+            .single()
+
+        if (error) throw error
+        return { data, error: null }
+    } catch (error: any) {
+        return { data: null, error: error.message }
+    }
+}
 export async function getOrders(filters?: {
     date?: string
     user_id?: string

@@ -140,7 +140,7 @@ import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonFooter,
   IonLabel, IonCard, IonCardHeader, IonCardTitle, IonCardContent,
   IonList, IonItem, IonGrid, IonRow, IonCol, IonButton,
-  IonModal, IonInput, IonButtons, IonSpinner, toastController, IonRadio, IonRadioGroup, IonRefresher, IonRefresherContent
+  IonModal, IonInput, IonButtons, IonSpinner, toastController, IonRadio, IonRadioGroup, IonRefresher, IonRefresherContent, onIonViewWillEnter
 } from '@ionic/vue';
 
 import { getProducts } from '../services/productService';
@@ -366,6 +366,12 @@ async function showToast(message: string, color: string = 'primary') {
 }
 
 onMounted(() => {
+  loadProducts();
+  loadPendingPayments();
+  loadCustomers();
+});
+
+onIonViewWillEnter(() => {
   loadProducts();
   loadPendingPayments();
   loadCustomers();

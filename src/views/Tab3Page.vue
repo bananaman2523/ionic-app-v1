@@ -9,9 +9,9 @@
           <ion-segment-button value="pending">
             <ion-label>ค้างชำระ</ion-label>
           </ion-segment-button>
-          <!-- <ion-segment-button value="customers">
-            <ion-label>รายชื่อลูกค้า</ion-label>
-          </ion-segment-button> -->
+          <ion-segment-button value="planning">
+            <ion-label>แพลนสินค้า</ion-label>
+          </ion-segment-button>
         </ion-segment>
       </ion-toolbar>
     </ion-header>
@@ -232,6 +232,187 @@
         </ion-content>
       </ion-modal>
 
+      <!-- Planning Section -->
+      <div v-if="selectedSegment === 'planning' && !loading">
+        <!-- Date Picker -->
+        <ion-card>
+          <ion-card-header>
+            <ion-card-title>เลือกวันที่แพลน</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <ion-datetime-button style="justify-content: flex-start;" datetime="plan-datetime"></ion-datetime-button>
+              <ion-modal :keep-contents-mounted="true">
+                <ion-datetime 
+                  id="plan-datetime" 
+                  presentation="date" 
+                  v-model="planDate"
+                  :prefer-wheel="false"
+                ></ion-datetime>
+              </ion-modal>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Product Selection -->
+        <!-- <ion-card class="products-card">
+          <ion-card-header>
+            <ion-card-title>เลือกสินค้า</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <ion-grid>
+              <ion-row>
+                <ion-col v-for="product in products" :key="product.name" size="4" class="product-col">
+                  <ion-button expand="full" color="primary" class="product-btn" @click="addToPlanCart(product.name)">
+                    {{ product.name }}
+                  </ion-button>
+                </ion-col>
+              </ion-row>
+            </ion-grid>
+          </ion-card-content>
+        </ion-card> -->
+
+        <ion-card class="products-card">
+        <ion-card-header>
+          <ion-card-title>เลือกสินค้า</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-grid class="product-grid">
+            <ion-row>
+              <ion-col v-for="product in products" :key="product.name" size="4" class="product-col">
+                <ion-button expand="full" color="primary" class="product-btn" @click="addToPlanCart(product.name)">
+                  {{ product.name }}
+                </ion-button>
+              </ion-col>
+            </ion-row>
+          </ion-grid>
+        </ion-card-content>
+      </ion-card>
+
+        <!-- Plan Cart -->
+        <ion-card v-if="planCart.length > 0">
+          <ion-card-header>
+            <ion-card-title>รายการสั่งจอง ({{ planCart.length }})</ion-card-title>
+            <ion-card-subtitle>{{ formatPlanDate(planDate) }}</ion-card-subtitle>
+          </ion-card-header>
+          <ion-card-content class="cart-content">
+            <ion-item>
+              <ion-input 
+                label-placement="floating" 
+                v-model="planCustomerName" 
+                type="text" 
+                placeholder="กรอกชื่อผู้สั่ง"
+              >
+                <div slot="label">ชื่อลูกค้า *</div>
+              </ion-input>
+            </ion-item>
+            
+            <ion-list>
+              <ion-item v-for="item in planCart" :key="item.name">
+                <ion-label>{{ item.name }}</ion-label>
+                <ion-input
+                  type="number"
+                  min="1"
+                  v-model.number="item.qty"
+                  @ionBlur="onPlanQtyBlur(item)"
+                  style="width: 80px; margin-left: 12px;"
+                  inputmode="numeric"
+                ></ion-input>
+                <ion-button color="danger" size="small" slot="end" @click="removeFromPlanCart(item.name)">
+                  <ion-icon :icon="trashOutline"></ion-icon>
+                </ion-button>
+              </ion-item>
+            </ion-list>
+
+            <div class="ion-padding">
+              <ion-button expand="block" color="success" @click="savePlan" :disabled="!planCustomerName.trim()">
+                <ion-icon :icon="saveOutline" slot="start"></ion-icon>
+                บันทึกสั่งจองล่วงหน้า
+              </ion-button>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Saved Pre-Orders List -->
+        <ion-card>
+          <ion-card-header>
+            <ion-card-title>รายการสั่งจองล่วงหน้า</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <ion-list v-if="groupedPreOrders.length > 0">
+              <ion-item-sliding v-for="group in groupedPreOrders" :key="group.date + group.customerName">
+                <ion-item button @click="viewPreOrderDetail(group)">
+                  <ion-icon :icon="calendarOutline" slot="start" color="primary"></ion-icon>
+                  <ion-label>
+                    <h2>{{ group.customerName }}</h2>
+                    <p>{{ formatPlanDate(group.date) }}</p>
+                    <p>{{ group.items.length }} รายการ</p>
+                  </ion-label>
+                  <ion-badge slot="end" color="warning">
+                    สั่งจอง
+                  </ion-badge>
+                </ion-item>
+
+                <ion-item-options side="end">
+                  <ion-item-option color="success" @click="completePreOrderGroup(group)">
+                    <ion-icon :icon="checkmarkCircle"></ion-icon>
+                    ส่งแล้ว
+                  </ion-item-option>
+                  <ion-item-option color="danger" @click="cancelPreOrderGroup(group)">
+                    <ion-icon :icon="trashOutline"></ion-icon>
+                    ยกเลิก
+                  </ion-item-option>
+                </ion-item-options>
+              </ion-item-sliding>
+            </ion-list>
+            <p v-else class="ion-text-center ion-padding">ยังไม่มีรายการสั่งจองล่วงหน้า</p>
+          </ion-card-content>
+        </ion-card>
+      </div>
+
+      <!-- Pre-Order Detail Modal -->
+      <ion-modal :is-open="showPlanDetailModal" @didDismiss="closePlanDetailModal">
+        <ion-header>
+          <ion-toolbar>
+            <ion-title>รายละเอียดสั่งจอง</ion-title>
+            <ion-buttons slot="end">
+              <ion-button @click="closePlanDetailModal">ปิด</ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+
+        <ion-content class="ion-padding" v-if="selectedPreOrderGroup">
+          <ion-card>
+            <ion-card-header>
+              <ion-card-title>{{ selectedPreOrderGroup.customerName }}</ion-card-title>
+              <ion-card-subtitle>
+                {{ formatPlanDate(selectedPreOrderGroup.date) }}
+                <ion-badge color="warning" style="margin-left: 8px;">สั่งจองล่วงหน้า</ion-badge>
+              </ion-card-subtitle>
+            </ion-card-header>
+            <ion-card-content>
+              <ion-list>
+                <ion-item v-for="item in selectedPreOrderGroup.items" :key="item.order_id">
+                  <ion-label>
+                    <h3>{{ item.product_name }}</h3>
+                  </ion-label>
+                  <ion-note slot="end">{{ item.quantity }} หน่วย</ion-note>
+                </ion-item>
+              </ion-list>
+              
+              <div class="ion-padding-top">
+                <p><strong>ยอดรวม:</strong> {{ formatCurrency(selectedPreOrderGroup.totalPrice) }}</p>
+              </div>
+            </ion-card-content>
+          </ion-card>
+
+          <div class="ion-padding">
+            <ion-button expand="block" color="success" @click="completePreOrderWithPayment(selectedPreOrderGroup)">
+              <ion-icon :icon="checkmarkCircle" slot="start"></ion-icon>
+              ส่งสินค้าและรับชำระเงิน
+            </ion-button>
+          </div>
+        </ion-content>
+      </ion-modal>
+
       <!-- Customer Detail Modal -->
       <ion-modal :is-open="showCustomerDetailModal" @didDismiss="closeCustomerDetailModal">
         <ion-header>
@@ -318,15 +499,18 @@ import {
   IonList, IonItem, IonNote, IonBadge, IonIcon, IonGrid, IonRow, IonCol, IonButton,
   IonSearchbar, IonAvatar, IonModal, IonInput, IonTextarea, IonSelect, IonSelectOption,
   IonButtons, IonSpinner, IonItemSliding, IonItemOptions, IonItemOption,
-  alertController, toastController, IonRefresher, IonRefresherContent
+  alertController, toastController, IonRefresher, IonRefresherContent,
+  IonDatetime, IonDatetimeButton, onIonViewWillEnter
 } from '@ionic/vue';
 import {
   checkmarkCircle, checkmarkCircleOutline, callOutline, personCircleOutline,
-  personAddOutline, peopleOutline, receiptOutline, createOutline, banOutline
+  personAddOutline, peopleOutline, receiptOutline, createOutline, banOutline,
+  trashOutline, saveOutline, calendarOutline
 } from 'ionicons/icons';
 import { getAllPendingPayments } from '../services/paymentService';
 import { getUsers, createUser, updateUser, getUserOrderHistory } from '../services/userService';
-import { updatePaymentStatus } from '../services/orderService';
+import { getProducts } from '../services/productService';
+import { updatePaymentStatus, createPreOrder, getPreOrders, completePreOrder, cancelPreOrder } from '../services/orderService';
 import type { Database } from '../types/supabase';
 import type { OrderWithDetails } from '../services/orderService';
 
@@ -356,6 +540,39 @@ const selectedCustomer = ref<User | null>(null);
 const pendingPayments = ref<PendingPaymentWithDetails[]>([]);
 const customers = ref<User[]>([]);
 const customerOrders = ref<OrderWithDetails[]>([]);
+
+// Planning state
+type Product = Database['public']['Tables']['products']['Row'];
+const products = ref<Product[]>([]);
+const planDate = ref(new Date().toISOString());
+const planCustomerName = ref('');
+const planCart = ref<{ name: string; qty: number }[]>([]);
+const savedPlans = ref<ProductPlan[]>([]);
+const preOrders = ref<any[]>([]);
+const showPlanDetailModal = ref(false);
+const selectedPlan = ref<ProductPlan | null>(null);
+const selectedPreOrderGroup = ref<PreOrderGroup | null>(null);
+
+interface PreOrderGroup {
+  date: string;
+  customerName: string;
+  items: any[];
+  totalPrice: number;
+  orderIds: string[];
+}
+
+interface ProductPlanItem {
+  name: string;
+  qty: number;
+}
+
+interface ProductPlan {
+  id: string;
+  plan_date: string;
+  items: ProductPlanItem[];
+  status: 'pending' | 'completed';
+  created_at: string;
+}
 
 const customerForm = ref({
   name: '',
@@ -658,21 +875,276 @@ async function showToast(message: string, color: string = 'primary') {
   await toast.present();
 }
 
+// Planning functions
+async function loadProducts() {
+  try {
+    const { data, error: err } = await getProducts();
+    if (err) throw new Error(err);
+    products.value = data || [];
+  } catch (err: any) {
+    error.value = err.message;
+  }
+}
+
+async function loadPreOrders() {
+  try {
+    const { data, error: err } = await getPreOrders();
+    if (err) throw new Error(err);
+    preOrders.value = data || [];
+  } catch (err: any) {
+    error.value = err.message;
+  }
+}
+
+// Computed: Group pre-orders by date and customer
+const groupedPreOrders = computed(() => {
+  const map = new Map<string, PreOrderGroup>();
+
+  for (const order of preOrders.value) {
+    const key = `${order.order_date}_${order.user_name}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        date: order.order_date,
+        customerName: order.user_name,
+        items: [],
+        totalPrice: 0,
+        orderIds: []
+      });
+    }
+    const group = map.get(key)!;
+    group.items.push(order);
+    group.totalPrice += order.total_price;
+    group.orderIds.push(order.order_id);
+  }
+
+  return Array.from(map.values()).sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+});
+
+function addToPlanCart(productName: string) {
+  const idx = planCart.value.findIndex(item => item.name === productName);
+  if (idx > -1) {
+    planCart.value[idx].qty += 1;
+  } else {
+    planCart.value.push({ name: productName, qty: 1 });
+  }
+}
+
+function removeFromPlanCart(productName: string) {
+  planCart.value = planCart.value.filter(item => item.name !== productName);
+}
+
+function onPlanQtyBlur(item: { name: string; qty: number }) {
+  if (!item.qty || item.qty < 1) {
+    item.qty = 1;
+  }
+}
+
+function loadSavedPlans() {
+  // โหลดจาก localStorage (สำหรับ backward compatibility)
+  const stored = localStorage.getItem('product_plans');
+  if (stored) {
+    savedPlans.value = JSON.parse(stored);
+  }
+}
+
+async function savePlan() {
+  if (planCart.value.length === 0) {
+    await showToast('กรุณาเลือกสินค้าอย่างน้อยหนึ่งรายการ', 'danger');
+    return;
+  }
+
+  if (!planCustomerName.value.trim()) {
+    await showToast('กรุณากรอกชื่อลูกค้า', 'danger');
+    return;
+  }
+
+  loading.value = true;
+
+  try {
+    // บันทึกเป็น Pre-Order ผ่าน API
+    const { error: err } = await createPreOrder({
+      customerName: planCustomerName.value.trim(),
+      items: planCart.value.map(item => ({
+        productName: item.name,
+        qty: item.qty
+      })),
+      planDate: planDate.value
+    });
+
+    if (err) throw new Error(err);
+
+    await showToast('บันทึกสั่งจองล่วงหน้าสำเร็จ', 'success');
+
+    // ล้างข้อมูล
+    planCart.value = [];
+    planCustomerName.value = '';
+    planDate.value = new Date().toISOString();
+
+    // โหลดรายการใหม่
+    await loadPreOrders();
+  } catch (err: any) {
+    await showToast(err.message, 'danger');
+  } finally {
+    loading.value = false;
+  }
+}
+
+function viewPreOrderDetail(group: PreOrderGroup) {
+  selectedPreOrderGroup.value = group;
+  showPlanDetailModal.value = true;
+}
+
+function closePlanDetailModal() {
+  showPlanDetailModal.value = false;
+  selectedPlan.value = null;
+  selectedPreOrderGroup.value = null;
+}
+
+async function completePreOrderGroup(group: PreOrderGroup) {
+  const alert = await alertController.create({
+    header: 'ยืนยันการส่งสินค้า',
+    message: `ส่งสินค้าให้ ${group.customerName} และรับชำระเงิน ${formatCurrency(group.totalPrice)}?`,
+    inputs: [
+      {
+        name: 'payment_method',
+        type: 'radio',
+        label: 'เงินสด',
+        value: 'cash',
+        checked: true
+      },
+      {
+        name: 'payment_method',
+        type: 'radio',
+        label: 'โอนเงิน',
+        value: 'transfer'
+      }
+    ],
+    buttons: [
+      { text: 'ยกเลิก', role: 'cancel' },
+      {
+        text: 'ยืนยัน',
+        role: 'confirm',
+        handler: async (data) => {
+          loading.value = true;
+          try {
+            for (const orderId of group.orderIds) {
+              const { error: err } = await completePreOrder(orderId, data);
+              if (err) throw new Error(err);
+            }
+            await showToast('ส่งสินค้าและรับชำระเงินสำเร็จ', 'success');
+            await loadPreOrders();
+          } catch (err: any) {
+            await showToast(err.message, 'danger');
+          } finally {
+            loading.value = false;
+          }
+        }
+      }
+    ]
+  });
+
+  await alert.present();
+}
+
+async function completePreOrderWithPayment(group: PreOrderGroup) {
+  closePlanDetailModal();
+  await completePreOrderGroup(group);
+}
+
+async function cancelPreOrderGroup(group: PreOrderGroup) {
+  const alert = await alertController.create({
+    header: 'ยืนยันการยกเลิก',
+    message: `ต้องการยกเลิกสั่งจองของ ${group.customerName} หรือไม่?`,
+    buttons: [
+      { text: 'ไม่', role: 'cancel' },
+      {
+        text: 'ยกเลิก',
+        role: 'destructive',
+        handler: async () => {
+          loading.value = true;
+          try {
+            for (const orderId of group.orderIds) {
+              const { error: err } = await cancelPreOrder(orderId);
+              if (err) throw new Error(err);
+            }
+            await showToast('ยกเลิกสั่งจองสำเร็จ', 'success');
+            await loadPreOrders();
+          } catch (err: any) {
+            await showToast(err.message, 'danger');
+          } finally {
+            loading.value = false;
+          }
+        }
+      }
+    ]
+  });
+  await alert.present();
+}
+
+function formatPlanDate(dateString: string) {
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('th-TH', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(date);
+}
+
 onMounted(() => {
   loadPendingPayments();
   loadCustomers();
+  loadProducts();
+  loadSavedPlans();
+  loadPreOrders();
+});
+
+onIonViewWillEnter(() => {
+  loadPendingPayments();
+  loadCustomers();
+  loadProducts();
+  loadSavedPlans();
+  loadPreOrders();
 });
 
 async function handleRefresh(event: any) {
   await Promise.all([
     loadPendingPayments(),
-    loadCustomers()
+    loadCustomers(),
+    loadProducts(),
+    loadPreOrders()
   ]);
+  loadSavedPlans();
   event.target.complete();
 }
 </script>
 
 <style scoped>
+.products-card {
+  border-radius: 16px;
+}
+
+.product-grid {
+  padding: 0;
+}
+
+.product-col {
+  padding: 2px;
+}
+
+.product-btn {
+  font-size: 1rem;
+  height: 80px;
+  margin: 0;
+  border-radius: 8px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.15);
+  --background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%);
+}
+
 .summary-box {
   text-align: center;
   padding: 16px;

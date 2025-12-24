@@ -79,7 +79,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonList, IonItem, IonLabel, IonSelect, IonSpinner , IonBadge, IonInput, IonModal } from '@ionic/vue';
+import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonList, IonItem, IonLabel, IonSelect, IonSpinner , IonBadge, IonInput, IonModal, onIonViewWillEnter } from '@ionic/vue';
 import { getProducts, updateStock } from '../services/productService';
 import { toastController } from '@ionic/vue';
 import type { Database } from '../types/supabase';
@@ -130,6 +130,11 @@ async function loadProducts() {
 onMounted(() => {
   loadProducts();
 });
+
+onIonViewWillEnter(() => {
+  loadProducts();
+});
+
 function onAddStock() {
   addStockForm.value = { product_id: '', quantity: 1 };
   showAddStockModal.value = true;
