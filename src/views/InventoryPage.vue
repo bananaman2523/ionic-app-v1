@@ -110,7 +110,7 @@
                 <ion-badge :color="getInventoryTypeColor(item.type)">
                   {{ getInventoryTypeText(item.type) }}
                 </ion-badge><br>
-                {{ item.quantity }} {{ item.products?.unit }}
+                <p style="text-align: end;">{{ item.quantity }} {{ item.products?.unit }}</p>
               </ion-note>
             </ion-item>
           </ion-list>
